@@ -39,7 +39,7 @@ class AppConfigService {
       );
 
       await _remoteConfig!.setDefaults({
-        'app_version': '1.0.0',
+        'app_version': '1.0.1',
         'network_timeout': _defaultNetworkTimeout,
         'data_cache_ttl': _defaultCacheTtl,
         'service_enabled': _defaultServiceEnabled,

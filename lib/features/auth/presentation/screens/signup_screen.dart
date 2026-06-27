@@ -72,7 +72,7 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
     // Also listen to login state for social login fallback
     ref.listen(loginControllerProvider, (previous, next) async {
       if (next.error != null) {
-        // Error already shown in login listener
+        SnackbarHelper.error(context, next.error.toString().replaceAll('Exception: ', ''));
       } else if (next.message != null && next.isLoggedIn) {
         SnackbarHelper.success(context, next.message.toString());
         
@@ -301,43 +301,47 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
                             }
                           },
                           onApplePressed: () async {
+                            ref.read(loginControllerProvider.notifier).startSocialLogin();
                             try {
                               // Get FCM token
                               final fcmToken = await NotificationService().getTokenForAuth();
-                              
+
                               // Sign in with Apple
                               final appleData = await SocialLoginService.signInWithApple();
-                              
+
+                              if (appleData['idToken'] == null) {
+                                throw Exception('Failed to get Apple credentials');
+                              }
+
+                              final idToken = appleData['idToken']!;
+                              final authorizationCode = appleData['authorizationCode'];
+                              final repo = ref.read(authRepositoryProvider);
+
                               // Call backend register/login (backend will handle if user exists)
-                              if (appleData['idToken'] != null) {
-                                try {
-                                  await ref.read(loginControllerProvider.notifier).loginWithApple(
-                                    idToken: appleData['idToken']!,
-                                    authorizationCode: appleData['authorizationCode'],
+                              final message = await repo.loginWithApple(
+                                idToken: idToken,
+                                authorizationCode: authorizationCode,
+                                notificationToken: fcmToken,
+                              ).catchError((e) {
+                                final errorMessage = e.toString();
+                                if (errorMessage.contains('404:') ||
+                                    errorMessage.toLowerCase().contains('not found') ||
+                                    errorMessage.toLowerCase().contains('not registered')) {
+                                  // User doesn't exist yet, register instead
+                                  return repo.registerWithApple(
+                                    idToken: idToken,
+                                    authorizationCode: authorizationCode,
                                     notificationToken: fcmToken,
                                   );
-                                } catch (e) {
-                                  // Check if it's a "user not found" error (404), then try register
-                                  final errorMessage = e.toString();
-                                  if (errorMessage.contains('404:') || 
-                                      errorMessage.toLowerCase().contains('not found') || 
-                                      errorMessage.toLowerCase().contains('not registered')) {
-                                    // User doesn't exist, try to register
-                                    await ref.read(signupControllerProvider.notifier).registerWithApple(
-                                      idToken: appleData['idToken']!,
-                                      authorizationCode: appleData['authorizationCode'],
-                                      notificationToken: fcmToken,
-                                    );
-                                  } else {
-                                    // Other error (e.g., invalid token), show error
-                                    SnackbarHelper.error(context, errorMessage.replaceAll('Exception: ', ''));
-                                  }
                                 }
-                              } else {
-                                SnackbarHelper.error(context, 'Failed to get Apple credentials');
-                              }
+                                throw e;
+                              });
+
+                              ref.read(loginControllerProvider.notifier).completeSocialLogin(message);
                             } catch (e) {
-                              SnackbarHelper.error(context, e.toString().replaceAll('Exception: ', ''));
+                              ref.read(loginControllerProvider.notifier).failSocialLogin(
+                                e.toString().replaceAll('Exception: ', ''),
+                              );
                             }
                           },
                           isLoading: signupState.isLoading,

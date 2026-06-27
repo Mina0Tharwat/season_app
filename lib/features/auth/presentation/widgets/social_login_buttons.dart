@@ -7,17 +7,19 @@ class SocialLoginButtons extends StatelessWidget {
   final VoidCallback onGooglePressed;
   final VoidCallback onApplePressed;
   final bool isLoading;
+  final bool showAppleButton;
 
   const SocialLoginButtons({
     super.key,
     required this.onGooglePressed,
     required this.onApplePressed,
     this.isLoading = false,
+    this.showAppleButton = true,
   });
 
   @override
   Widget build(BuildContext context) {
-    final isAppleAvailable = SocialLoginService.isAppleSignInAvailable();
+    final isAppleAvailable = showAppleButton && SocialLoginService.isAppleSignInAvailable();
 
     return Column(
       children: [

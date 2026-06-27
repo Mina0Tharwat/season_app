@@ -56,6 +56,12 @@
 	<string>We need your location to share it with your groups for safety tracking.</string>
 	<key>NSLocationAlwaysUsageDescription</key>
 	<string>We need your location to share it with your groups for safety tracking, even when the app is in the background.</string>
+	<key>GIDClientID</key>
+	<string>947193806162-lfu94ita3hfpv201cgvkdt8c95n1kufb.apps.googleusercontent.com</string>
+	<key>NSCameraUsageDescription</key>
+	<string>We need access to your camera to scan QR codes for joining groups.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>We need access to your photo library to let you choose images for QR code scanning, your profile, and other items in the app.</string>
 	<key>CFBundleURLTypes</key>
 	<array>
 		<dict>
@@ -63,11 +69,8 @@
 			<string>Editor</string>
 			<key>CFBundleURLSchemes</key>
 			<array>
-				<!-- Replace with your REVERSED_CLIENT_ID from GoogleService-Info.plist -->
-				<!-- Example: com.googleusercontent.apps.123456789-abcdefghijklmnop -->
-				<string>com.googleusercontent.apps.YOUR_REVERSED_CLIENT_ID</string>
-				<!-- Add your bundle identifier for Apple Sign-In -->
-				<string>com.season.app.season_app</string>
+				<string>com.googleusercontent.apps.947193806162-lfu94ita3hfpv201cgvkdt8c95n1kufb</string>
+				<string>com.season.app.seasonApp</string>
 			</array>
 		</dict>
 	</array>

@@ -113,7 +113,7 @@ class SettingsScreen extends ConsumerWidget {
                   _buildSettingCard(
                     icon: Icons.code,
                     title: loc.version,
-                    subtitle: '1.0.0',
+                    subtitle: '1.0.1',
                     trailing: const SizedBox.shrink(),
                   ),
                   
