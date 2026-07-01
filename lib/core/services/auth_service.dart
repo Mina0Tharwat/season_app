@@ -5,6 +5,8 @@ class AuthService {
   static const String _userIdKey = 'user_id';
   static const String _userEmailKey = 'user_email';
   static const String _isLoggedInKey = 'is_logged_in';
+  static const String _emailVerifiedKey = 'email_verified';
+  static const String _pendingVerificationEmailKey = 'pending_verification_email';
 
   // Save auth token
   static Future<void> saveToken(String token) async {
@@ -46,6 +48,33 @@ class AuthService {
     return LocalStorageService.getBool(_isLoggedInKey) ?? false;
   }
 
+  static Future<void> setEmailVerified(bool verified) async {
+    await LocalStorageService.saveBool(_emailVerifiedKey, verified);
+  }
+
+  static bool isEmailVerified() {
+    return LocalStorageService.getBool(_emailVerifiedKey) ?? false;
+  }
+
+  /// Email of an account that was created but still needs verification.
+  /// Lets the user open the app and verify later (optional) from settings.
+  static Future<void> setPendingVerificationEmail(String? email) async {
+    if (email == null || email.isEmpty) {
+      await LocalStorageService.remove(_pendingVerificationEmailKey);
+    } else {
+      await LocalStorageService.saveString(_pendingVerificationEmailKey, email);
+    }
+  }
+
+  static String? getPendingVerificationEmail() {
+    return LocalStorageService.getString(_pendingVerificationEmailKey);
+  }
+
+  static bool hasPendingVerification() {
+    final email = getPendingVerificationEmail();
+    return email != null && email.isNotEmpty;
+  }
+
   // Save complete auth data
   static Future<void> saveAuthData({
     required String token,
@@ -64,6 +93,8 @@ class AuthService {
     await LocalStorageService.remove(_userIdKey);
     await LocalStorageService.remove(_userEmailKey);
     await LocalStorageService.remove(_isLoggedInKey);
+    await LocalStorageService.remove(_emailVerifiedKey);
+    await LocalStorageService.remove(_pendingVerificationEmailKey);
   }
 
   // Clear all data (complete logout)

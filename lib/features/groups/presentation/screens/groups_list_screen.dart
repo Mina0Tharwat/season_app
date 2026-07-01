@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:season_app/core/constants/app_colors.dart';
 import 'package:season_app/core/localization/generated/l10n.dart';
+import 'package:season_app/core/providers/auth_state_provider.dart';
+import 'package:season_app/core/utils/auth_gate.dart';
 import 'package:season_app/features/groups/providers.dart';
 import 'package:season_app/features/groups/presentation/widgets/group_card.dart';
 import 'package:season_app/shared/helpers/snackbar_helper.dart';
@@ -25,10 +27,35 @@ class _GroupsListScreenState extends ConsumerState<GroupsListScreen> {
     await ref.read(groupsControllerProvider.notifier).loadGroups();
   }
 
+  Future<void> _openCreateGroup() async {
+    if (!await AuthGate.requireLogin(context)) return;
+    if (!mounted) return;
+    context.push('/groups/create');
+  }
+
+  Future<void> _openJoinGroup() async {
+    if (!await AuthGate.requireLogin(context)) return;
+    if (!mounted) return;
+    context.push('/groups/join');
+  }
+
   @override
   Widget build(BuildContext context) {
-    final groupsState = ref.watch(groupsControllerProvider);
     final loc = AppLocalizations.of(context);
+
+    // Reload groups as soon as the user transitions from guest to logged in.
+    ref.listen(authStateProvider, (previous, next) {
+      if (next == true && previous != true) {
+        ref.read(groupsControllerProvider.notifier).loadGroups();
+      }
+    });
+
+    final isLoggedIn = ref.watch(authStateProvider);
+    if (!isLoggedIn) {
+      return GuestLoginPrompt(message: loc.groupPageContent);
+    }
+
+    final groupsState = ref.watch(groupsControllerProvider);
 
     // Listen to state changes for messages/errors
     ref.listen(groupsControllerProvider, (previous, next) {
@@ -134,7 +161,7 @@ class _GroupsListScreenState extends ConsumerState<GroupsListScreen> {
                                 label: loc.createGroup,
                                 color: Colors.white,
                                 textColor: AppColors.primary,
-                                onTap: () => context.push('/groups/create'),
+                                onTap: _openCreateGroup,
                               ),
                             ),
                             const SizedBox(width: 12),
@@ -144,7 +171,7 @@ class _GroupsListScreenState extends ConsumerState<GroupsListScreen> {
                                 label: loc.joinGroup,
                                 color: AppColors.secondary,
                                 textColor: Colors.white,
-                                onTap: () => context.push('/groups/join'),
+                                onTap: _openJoinGroup,
                               ),
                             ),
                           ],
@@ -237,7 +264,7 @@ class _GroupsListScreenState extends ConsumerState<GroupsListScreen> {
                             SizedBox(
                               width: double.infinity,
                               child: ElevatedButton.icon(
-                                onPressed: () => context.push('/groups/create'),
+                                onPressed: _openCreateGroup,
                                 icon: const Icon(Icons.add_circle_rounded, size: 22),
                                 label: Text(
                                   loc.createGroup,
@@ -262,7 +289,7 @@ class _GroupsListScreenState extends ConsumerState<GroupsListScreen> {
                             SizedBox(
                               width: double.infinity,
                               child: OutlinedButton.icon(
-                                onPressed: () => context.push('/groups/join'),
+                                onPressed: _openJoinGroup,
                                 icon: const Icon(Icons.login_rounded, size: 22),
                                 label: Text(
                                   loc.joinGroup,

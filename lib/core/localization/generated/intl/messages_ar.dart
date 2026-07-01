@@ -351,8 +351,20 @@ class MessageLookup extends MessageLookupByLibrary {
     "emailAppNotAvailable": MessageLookupByLibrary.simpleMessage(
       "تعذر فتح تطبيق البريد",
     ),
+    "emailNotVerified": MessageLookupByLibrary.simpleMessage(
+      "البريد الإلكتروني غير موثّق",
+    ),
     "emailNotifications": MessageLookupByLibrary.simpleMessage(
       "إشعارات البريد الإلكتروني",
+    ),
+    "emailVerificationHint": MessageLookupByLibrary.simpleMessage(
+      "وثّق بريدك الإلكتروني لتأمين حسابك",
+    ),
+    "emailVerificationSent": MessageLookupByLibrary.simpleMessage(
+      "تم إرسال رمز التحقق إلى بريدك الإلكتروني",
+    ),
+    "emailVerified": MessageLookupByLibrary.simpleMessage(
+      "البريد الإلكتروني موثّق",
     ),
     "emergencyAlerts": MessageLookupByLibrary.simpleMessage(
       "🚨 تنبيهات الطوارئ",
@@ -698,6 +710,7 @@ class MessageLookup extends MessageLookupByLibrary {
     "updateProfile": MessageLookupByLibrary.simpleMessage("تحديث الملف الشخصي"),
     "vendorServices": MessageLookupByLibrary.simpleMessage("خدمات البائعين"),
     "verify": MessageLookupByLibrary.simpleMessage("تحقق"),
+    "verifyEmailNow": MessageLookupByLibrary.simpleMessage("توثيق البريد"),
     "verifyMail": MessageLookupByLibrary.simpleMessage(
       "تحقق من البريد الالكتروني",
     ),

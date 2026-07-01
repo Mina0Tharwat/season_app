@@ -56,20 +56,40 @@
 	<string>We need your location to share it with your groups for safety tracking.</string>
 	<key>NSLocationAlwaysUsageDescription</key>
 	<string>We need your location to share it with your groups for safety tracking, even when the app is in the background.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>We need access to your camera to scan group QR codes.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>We need access to your photos to scan a QR code from an image and to set your profile picture.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>We need access to save images to your photo library.</string>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 	<key>CFBundleURLTypes</key>
 	<array>
 		<dict>
 			<key>CFBundleTypeRole</key>
 			<string>Editor</string>
+			<key>CFBundleURLName</key>
+			<string>com.season.app.seasonApp</string>
 			<key>CFBundleURLSchemes</key>
 			<array>
-				<!-- Replace with your REVERSED_CLIENT_ID from GoogleService-Info.plist -->
-				<!-- Example: com.googleusercontent.apps.123456789-abcdefghijklmnop -->
-				<string>com.googleusercontent.apps.YOUR_REVERSED_CLIENT_ID</string>
-				<!-- Add your bundle identifier for Apple Sign-In -->
-				<string>com.season.app.season_app</string>
+				<!-- App bundle identifier (used by some OAuth redirect flows). -->
+				<string>com.season.app.seasonApp</string>
+			</array>
+		</dict>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLName</key>
+			<string>google-signin</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<!-- Google Sign-In REVERSED_CLIENT_ID (project season-80348). -->
+				<string>com.googleusercontent.apps.947193806162-lfu94ita3hfpv201cgvkdt8c95n1kufb</string>
 			</array>
 		</dict>
 	</array>
+	<key>GIDClientID</key>
+	<string>947193806162-lfu94ita3hfpv201cgvkdt8c95n1kufb.apps.googleusercontent.com</string>
 </dict>
 </plist>

@@ -3,6 +3,9 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:season_app/core/constants/app_colors.dart';
 import 'package:season_app/core/localization/generated/l10n.dart';
+import 'package:season_app/core/providers/auth_state_provider.dart';
+import 'package:season_app/core/services/auth_service.dart';
+import 'package:season_app/core/utils/auth_gate.dart';
 import 'package:season_app/features/reminders/data/models/reminder_model.dart';
 import 'package:season_app/features/reminders/presentation/widgets/add_reminder_modal.dart';
 import 'package:season_app/features/reminders/providers.dart';
@@ -21,11 +24,14 @@ class _CardPageState extends ConsumerState<CardPage> {
     super.initState();
     // Load reminders when the page initializes
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!AuthService.isLoggedIn()) return;
       ref.read(remindersProvider.notifier).loadReminders();
     });
   }
 
-  void _showAddReminderModal({ReminderModel? reminder}) {
+  void _showAddReminderModal({ReminderModel? reminder}) async {
+    if (!await AuthGate.requireLogin(context)) return;
+    if (!mounted) return;
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -85,6 +91,19 @@ class _CardPageState extends ConsumerState<CardPage> {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
+
+    // Reload reminders as soon as the user transitions from guest to logged in.
+    ref.listen(authStateProvider, (previous, next) {
+      if (next == true && previous != true) {
+        ref.read(remindersProvider.notifier).loadReminders();
+      }
+    });
+
+    final isLoggedIn = ref.watch(authStateProvider);
+    if (!isLoggedIn) {
+      return GuestLoginPrompt(message: l10n.cardPageContent);
+    }
+
     final remindersState = ref.watch(remindersProvider);
 
     return AnnotatedRegion<SystemUiOverlayStyle>(

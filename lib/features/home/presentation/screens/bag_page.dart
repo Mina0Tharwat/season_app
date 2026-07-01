@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:season_app/core/constants/app_colors.dart';
 import 'package:season_app/core/localization/generated/l10n.dart';
 import 'package:season_app/core/router/routes.dart';
+import 'package:season_app/core/providers/auth_state_provider.dart';
 import 'package:season_app/core/services/dio_client.dart';
+import 'package:season_app/core/services/auth_service.dart';
+import 'package:season_app/core/utils/auth_gate.dart';
 import 'package:season_app/features/home/presentation/screens/bag_detail_screen.dart';
 import 'package:season_app/features/home/providers/bag_providers.dart';
 import 'package:season_app/shared/widgets/custom_toast.dart';
@@ -27,6 +29,7 @@ class _BagPageState extends ConsumerState<BagPage> {
     super.initState();
     // Load bags when screen opens - only call bags API
     WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!AuthService.isLoggedIn()) return;
       // Only load bags, not bag details
       // Add a small delay to ensure provider is fully initialized
       await Future.delayed(const Duration(milliseconds: 100));
@@ -45,8 +48,9 @@ class _BagPageState extends ConsumerState<BagPage> {
     Navigator.push(context, MaterialPageRoute(builder: (context) => BagDetailScreen(bagId: bag.bagId)));
   }
 
-  void _createBag() {
-    // Navigate to create bag screen
+  Future<void> _createBag() async {
+    if (!await AuthGate.requireLogin(context)) return;
+    if (!mounted) return;
     context.push(Routes.createBag);
   }
 
@@ -115,6 +119,20 @@ class _BagPageState extends ConsumerState<BagPage> {
 
   @override
   Widget build(BuildContext context) {
+    final loc = AppLocalizations.of(context);
+
+    // Reload bags as soon as the user transitions from guest to logged in.
+    ref.listen(authStateProvider, (previous, next) {
+      if (next == true && previous != true) {
+        ref.read(bagControllerProvider.notifier).loadBagDetails();
+      }
+    });
+
+    final isLoggedIn = ref.watch(authStateProvider);
+    if (!isLoggedIn) {
+      return GuestLoginPrompt(message: loc.bagPageContent);
+    }
+
     final bagState = ref.watch(bagControllerProvider);
     final isRtl = Directionality.of(context) == TextDirection.rtl;
 

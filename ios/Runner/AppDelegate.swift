@@ -35,7 +35,6 @@ import FirebaseMessaging
     
     // Note: Native location service is started via method channel from Flutter
     // Don't start automatically here to avoid starting before user is logged in
-    let controller : FlutterViewController = window?.rootViewController as! FlutterViewController
     let mapsChannel = FlutterMethodChannel(name: "season_app/maps",
                                           binaryMessenger: controller.binaryMessenger)
     mapsChannel.setMethodCallHandler({
@@ -148,70 +147,14 @@ extension AppDelegate: MessagingDelegate {
     print("📱 Firebase registration token: \(fcmToken ?? "nil")")
     // Token is also handled by Flutter FirebaseMessaging plugin
   }
-  
-  // Handle FCM data-only messages when app is in foreground
-  // Note: For terminated state, iOS handles notifications through UNUserNotificationCenterDelegate
-  func messaging(_ messaging: Messaging, didReceiveMessage remoteMessage: MessagingRemoteMessage) {
-    print("📩 FCM Data message received natively (app in foreground)")
-    print("   Message ID: \(remoteMessage.messageID ?? "nil")")
-    print("   Data: \(remoteMessage.appData)")
-    
-    // Check if this is a safety radius alarm
-    let appData = remoteMessage.appData
-    let isSafetyRadiusAlarm = appData["type"] as? String == "safety_radius_alert" ||
-                              appData["notification_type"] as? String == "safety_radius_alert"
-    
-    // Verify admin status
-    let isAdmin = appData["is_admin"] as? String == "true" ||
-                  appData["is_owner"] as? String == "true" ||
-                  appData["for_admin"] as? String == "true"
-    
-    if isSafetyRadiusAlarm && isAdmin {
-      print("🚨 Safety radius alarm detected - showing native notification")
-      showAlarmNotification(userInfo: appData)
-    }
-  }
-  
-  private func showAlarmNotification(userInfo: [AnyHashable: Any]) {
-    // Extract title and body
-    let title = userInfo["title"] as? String ?? "🚨 Safety Alert"
-    let body = userInfo["body"] as? String ?? "A group member is outside the safety radius!"
-    
-    // Create notification content
-    let content = UNMutableNotificationContent()
-    content.title = title
-    content.body = body
-    content.sound = UNNotificationSound.defaultCritical // Critical sound for alarm
-    content.categoryIdentifier = "ALARM"
-    content.userInfo = userInfo as! [String: Any]
-    
-    // Set interruption level to critical for iOS 15+
-    if #available(iOS 15.0, *) {
-      content.interruptionLevel = .critical
-    }
-    
-    // Create notification request
-    let request = UNNotificationRequest(
-      identifier: "safety_radius_alarm_\(Date().timeIntervalSince1970)",
-      content: content,
-      trigger: nil // Show immediately
-    )
-    
-    // Add notification to center
-    UNUserNotificationCenter.current().add(request) { error in
-      if let error = error {
-        print("❌ Error showing alarm notification: \(error.localizedDescription)")
-      } else {
-        print("✅ Alarm notification shown: \(title)")
-      }
-    }
-  }
 }
 
 // MARK: - UNUserNotificationCenterDelegate
-extension AppDelegate: UNUserNotificationCenterDelegate {
+// Note: FlutterAppDelegate already conforms to UNUserNotificationCenterDelegate,
+// so these methods must use `override` and the conformance must not be redeclared.
+extension AppDelegate {
   // Handle notification when app is in foreground or terminated
-  func userNotificationCenter(
+  override func userNotificationCenter(
     _ center: UNUserNotificationCenter,
     willPresent notification: UNNotification,
     withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void
@@ -248,7 +191,7 @@ extension AppDelegate: UNUserNotificationCenterDelegate {
   }
   
   // Handle notification tap (when app is terminated and user taps notification)
-  func userNotificationCenter(
+  override func userNotificationCenter(
     _ center: UNUserNotificationCenter,
     didReceive response: UNNotificationResponse,
     withCompletionHandler completionHandler: @escaping () -> Void

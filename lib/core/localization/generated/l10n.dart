@@ -719,6 +719,56 @@ class AppLocalizations {
     return Intl.message('Account', name: 'account', desc: '', args: []);
   }
 
+  /// `Email verified`
+  String get emailVerified {
+    return Intl.message(
+      'Email verified',
+      name: 'emailVerified',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Email not verified`
+  String get emailNotVerified {
+    return Intl.message(
+      'Email not verified',
+      name: 'emailNotVerified',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Verify email`
+  String get verifyEmailNow {
+    return Intl.message(
+      'Verify email',
+      name: 'verifyEmailNow',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Verify your email to secure your account`
+  String get emailVerificationHint {
+    return Intl.message(
+      'Verify your email to secure your account',
+      name: 'emailVerificationHint',
+      desc: '',
+      args: [],
+    );
+  }
+
+  /// `Verification code sent to your email`
+  String get emailVerificationSent {
+    return Intl.message(
+      'Verification code sent to your email',
+      name: 'emailVerificationSent',
+      desc: '',
+      args: [],
+    );
+  }
+
   /// `Delete Account`
   String get deleteAccount {
     return Intl.message(

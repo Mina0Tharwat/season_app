@@ -74,7 +74,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       DioHelper.instance.setAccessToken(token);
       context.go(Routes.home);
     } else {
-      context.go(Routes.login);
+      context.go(Routes.home);
     }
   }
 

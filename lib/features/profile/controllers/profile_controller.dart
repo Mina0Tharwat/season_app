@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:riverpod/riverpod.dart';
+import 'package:season_app/core/services/auth_service.dart';
 import 'package:season_app/features/profile/data/models/profile_model.dart';
 import 'package:season_app/features/profile/data/repositories/profile_repository.dart';
 import 'package:season_app/features/profile/providers.dart';
@@ -45,6 +46,7 @@ class ProfileController extends Notifier<ProfileState> {
     
     try {
       final profile = await repository.getProfile();
+      await AuthService.setEmailVerified(profile.isEmailVerified);
       state = state.copyWith(
         profile: profile,
         isLoading: false,
@@ -88,6 +90,7 @@ class ProfileController extends Notifier<ProfileState> {
         profile: updatedProfile,
         isUpdating: false,
       );
+      await AuthService.setEmailVerified(updatedProfile.isEmailVerified);
       
       return true;
     } catch (e) {

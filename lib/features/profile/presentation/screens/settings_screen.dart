@@ -466,7 +466,7 @@ class SettingsScreen extends ConsumerWidget {
             if (shouldLogout == true && context.mounted) {
               await AppStateService.clearAllAppState(ref);
               if (context.mounted) {
-                context.go(Routes.welcome);
+                context.go(Routes.home);
               }
             }
           },

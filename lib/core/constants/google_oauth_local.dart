@@ -13,3 +13,9 @@ const String kLocalGoogleWebClientId =
 /// Alternate manual Web client — backend may use this instead; app retries if needed.
 const String kAlternateGoogleWebClientId =
     '947193806162-nua0frbdtn89jipohvfn43bbbc8r86er.apps.googleusercontent.com';
+
+/// iOS OAuth client ID from Firebase Console → iOS app → GoogleService-Info.plist
+/// (`CLIENT_ID` key). Also add `REVERSED_CLIENT_ID` to `ios/Runner/Info.plist`.
+/// Belongs to the same GCP project (season-80348) as the backend/Android.
+const String kLocalGoogleIosClientId =
+    '947193806162-lfu94ita3hfpv201cgvkdt8c95n1kufb.apps.googleusercontent.com';

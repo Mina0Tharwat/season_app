@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/legacy.dart';
+import 'package:season_app/core/services/auth_service.dart';
 import 'package:season_app/features/auth/data/repositories/auth_repository.dart';
 
 class LoginState {
@@ -75,12 +76,17 @@ class LoginController extends StateNotifier<LoginState> {
       isLoading: false,
       error: null,
       message: message,
-      isLoggedIn: true,
+      isLoggedIn: AuthService.isLoggedIn(),
     );
   }
 
   void failSocialLogin(String error) {
     state = state.copyWith(isLoading: false, error: error, isLoggedIn: false);
+  }
+
+  /// Reset loading/error without surfacing a message (e.g. user cancelled).
+  void cancelSocialLogin() {
+    state = state.copyWith(isLoading: false, error: null, message: null);
   }
 
   /// Login with Google

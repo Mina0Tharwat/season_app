@@ -17,7 +17,12 @@ class SocialLoginButtons extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isGoogleAvailable = SocialLoginService.isGoogleSignInAvailable();
     final isAppleAvailable = SocialLoginService.isAppleSignInAvailable();
+
+    if (!isGoogleAvailable && !isAppleAvailable) {
+      return const SizedBox.shrink();
+    }
 
     return Column(
       children: [
@@ -51,29 +56,26 @@ class SocialLoginButtons extends StatelessWidget {
         const SizedBox(height: 20),
         Row(
           children: [
-            // Google Sign In Button
-            Expanded(
-              child: _SocialLoginButton(
-                iconPath: AppAssets.googleIcon,
-                label: Localizations.localeOf(context).languageCode == 'ar'
-                    ? 'Google'
-                    : 'Google',
-                color: Colors.white,
-                textColor: Colors.black87,
-                borderColor: Colors.grey.shade300,
-                onPressed: isLoading ? null : onGooglePressed,
-                isLoading: isLoading,
+            if (isGoogleAvailable)
+              Expanded(
+                child: _SocialLoginButton(
+                  iconPath: AppAssets.googleIcon,
+                  label: 'Google',
+                  color: Colors.white,
+                  textColor: Colors.black87,
+                  borderColor: Colors.grey.shade300,
+                  onPressed: isLoading ? null : onGooglePressed,
+                  isLoading: isLoading,
+                ),
               ),
-            ),
-            if (isAppleAvailable) ...[
+            if (isGoogleAvailable && isAppleAvailable) ...[
               const SizedBox(width: 12),
-              // Apple Sign In Button
+            ],
+            if (isAppleAvailable) ...[
               Expanded(
                 child: _SocialLoginButton(
                   iconPath: AppAssets.appleIcon,
-                  label: Localizations.localeOf(context).languageCode == 'ar'
-                      ? 'Apple'
-                      : 'Apple',
+                  label: 'Apple',
                   color: Colors.black,
                   textColor: Colors.white,
                   borderColor: Colors.black,

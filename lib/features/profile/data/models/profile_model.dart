@@ -4,6 +4,7 @@ class ProfileModel {
   final String? nickname;
   final String email;
   final String phone;
+  final String? emailVerifiedAt;
   final String? birthDate;
   final String? gender;
   final String? photoUrl;
@@ -19,6 +20,7 @@ class ProfileModel {
     this.nickname,
     required this.email,
     required this.phone,
+    this.emailVerifiedAt,
     this.birthDate,
     this.gender,
     this.photoUrl,
@@ -36,6 +38,7 @@ class ProfileModel {
       nickname: json['nickname'],
       email: json['email'] ?? '',
       phone: json['phone'] ?? '',
+      emailVerifiedAt: json['email_verified_at']?.toString(),
       birthDate: json['birth_date'],
       gender: json['gender'],
       photoUrl: json['photo_url'],
@@ -54,6 +57,7 @@ class ProfileModel {
       'nickname': nickname,
       'email': email,
       'phone': phone,
+      'email_verified_at': emailVerifiedAt,
       'birth_date': birthDate,
       'gender': gender,
       'photo_url': photoUrl,
@@ -71,6 +75,7 @@ class ProfileModel {
     String? nickname,
     String? email,
     String? phone,
+    String? emailVerifiedAt,
     String? birthDate,
     String? gender,
     String? photoUrl,
@@ -86,6 +91,7 @@ class ProfileModel {
       nickname: nickname ?? this.nickname,
       email: email ?? this.email,
       phone: phone ?? this.phone,
+      emailVerifiedAt: emailVerifiedAt ?? this.emailVerifiedAt,
       birthDate: birthDate ?? this.birthDate,
       gender: gender ?? this.gender,
       photoUrl: photoUrl ?? this.photoUrl,
@@ -96,6 +102,11 @@ class ProfileModel {
       trips: trips ?? this.trips,
     );
   }
+  
+  bool get isEmailVerified =>
+      emailVerifiedAt != null &&
+      emailVerifiedAt!.isNotEmpty &&
+      emailVerifiedAt!.toLowerCase() != 'null';
   
   // Helper method to get avatar path
   String? get avatarPath {

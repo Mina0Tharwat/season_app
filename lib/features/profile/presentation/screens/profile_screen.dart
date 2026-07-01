@@ -7,7 +7,9 @@ import 'package:qr_flutter/qr_flutter.dart';
 import 'package:season_app/core/constants/app_colors.dart';
 import 'package:season_app/core/localization/generated/l10n.dart';
 import 'package:season_app/core/router/routes.dart';
+import 'package:season_app/core/providers/auth_state_provider.dart';
 import 'package:season_app/core/services/auth_service.dart';
+import 'package:season_app/core/utils/auth_gate.dart';
 import 'package:season_app/features/home/controllers/user_qr_controller.dart';
 import 'package:season_app/features/profile/providers.dart';
 import 'package:season_app/features/vendor/presentation/providers/vendor_providers.dart';
@@ -34,6 +36,16 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   @override
   Widget build(BuildContext context) {
     final loc = AppLocalizations.of(context);
+
+    // Reload profile data as soon as the user transitions from guest to logged in.
+    ref.listen(authStateProvider, (previous, next) {
+      if (next == true && previous != true) {
+        ref.read(profileControllerProvider.notifier).loadProfile();
+        ref.read(userQrControllerProvider.notifier).loadUserQr();
+      }
+    });
+
+    final isLoggedIn = ref.watch(authStateProvider);
     final profileState = ref.watch(profileControllerProvider);
     final userQrState = ref.watch(userQrControllerProvider);
     final vendorServicesAsync = ref.watch(vendorServicesProvider);
@@ -46,33 +58,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       orElse: () => false,
     );
 
-    if (!AuthService.isLoggedIn()) {
-      return Scaffold(
-        backgroundColor: isDark ? AppColors.backgroundDark : AppColors.backgroundLight,
-        body: Center(
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text(
-                  loc.profilePageContent,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(fontSize: 16),
-                ),
-                const SizedBox(height: 24),
-                CustomButton(
-                  text: loc.login,
-                  onPressed: () => context.go(Routes.login),
-                  color: AppColors.primary,
-                  textColor: AppColors.textLight,
-                  width: double.infinity,
-                ),
-              ],
-            ),
-          ),
-        ),
-      );
+    if (!isLoggedIn) {
+      return GuestLoginPrompt(message: loc.profilePageContent);
     }
 
     return Scaffold(

@@ -347,9 +347,19 @@ class MessageLookup extends MessageLookupByLibrary {
     "emailAppNotAvailable": MessageLookupByLibrary.simpleMessage(
       "Could not open email app",
     ),
+    "emailNotVerified": MessageLookupByLibrary.simpleMessage(
+      "Email not verified",
+    ),
     "emailNotifications": MessageLookupByLibrary.simpleMessage(
       "Email Notifications",
     ),
+    "emailVerificationHint": MessageLookupByLibrary.simpleMessage(
+      "Verify your email to secure your account",
+    ),
+    "emailVerificationSent": MessageLookupByLibrary.simpleMessage(
+      "Verification code sent to your email",
+    ),
+    "emailVerified": MessageLookupByLibrary.simpleMessage("Email verified"),
     "emergencyAlerts": MessageLookupByLibrary.simpleMessage(
       "🚨 Emergency Alerts",
     ),
@@ -698,6 +708,7 @@ class MessageLookup extends MessageLookupByLibrary {
     "updateProfile": MessageLookupByLibrary.simpleMessage("Update Profile"),
     "vendorServices": MessageLookupByLibrary.simpleMessage("Vendor Services"),
     "verify": MessageLookupByLibrary.simpleMessage("Verify"),
+    "verifyEmailNow": MessageLookupByLibrary.simpleMessage("Verify email"),
     "verifyMail": MessageLookupByLibrary.simpleMessage("Verify Mail"),
     "verifyMailBody": MessageLookupByLibrary.simpleMessage(
       "We have sent a verification code to your email",

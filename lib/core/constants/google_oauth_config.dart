@@ -23,6 +23,21 @@ class GoogleOAuthConfig {
   /// Alternate Web client (manual GCP credential).
   static const String alternateWebClientId = kAlternateGoogleWebClientId;
 
+  /// iOS native OAuth client (`CLIENT_ID` in GoogleService-Info.plist).
+  static const String iosClientId = String.fromEnvironment(
+    'GOOGLE_IOS_CLIENT_ID',
+    defaultValue: kLocalGoogleIosClientId,
+  );
+
+  /// Reversed URL scheme for iOS Google Sign-In redirect (from REVERSED_CLIENT_ID).
+  static String? get iosReversedClientId {
+    if (iosClientId.isEmpty) return null;
+    final prefix = iosClientId.replaceAll('.apps.googleusercontent.com', '');
+    return 'com.googleusercontent.apps.$prefix';
+  }
+
+  static bool get isIosGoogleConfigured => iosClientId.isNotEmpty;
+
   /// Clients to try when backend rejects the token (Firebase first — matches Android `aud`).
   static List<String> get webClientIdsToTry {
     final primary = serverClientId.isEmpty ? firebaseWebClientId : serverClientId;

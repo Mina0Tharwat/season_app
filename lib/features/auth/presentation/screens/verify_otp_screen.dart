@@ -7,12 +7,21 @@ import 'package:season_app/core/constants/app_assets.dart';
 import 'package:season_app/core/constants/app_colors.dart';
 import 'package:season_app/core/localization/generated/l10n.dart';
 import 'package:season_app/core/router/routes.dart';
+import 'package:season_app/core/services/app_state_service.dart';
+import 'package:season_app/core/services/auth_service.dart';
+import 'package:season_app/core/services/notification_service.dart';
 import 'package:season_app/features/auth/providers.dart';
+import 'package:season_app/features/profile/providers.dart';
 import 'package:season_app/shared/helpers/snackbar_helper.dart';
 import 'package:season_app/shared/widgets/custom_button.dart';
 
 class VerifyOtpScreen extends ConsumerStatefulWidget {
-  const VerifyOtpScreen({super.key});
+  final String? returnTo;
+
+  const VerifyOtpScreen({
+    super.key,
+    this.returnTo,
+  });
 
   @override
   ConsumerState<VerifyOtpScreen> createState() => _VerifyOtpScreenState();
@@ -70,18 +79,33 @@ class _VerifyOtpScreenState extends ConsumerState<VerifyOtpScreen> {
     final otpState = ref.watch(otpControllerProvider);
     
     // Listen to OTP state changes
-    ref.listen(otpControllerProvider, (previous, next) {
+    ref.listen(otpControllerProvider, (previous, next) async {
       if (next.error != null) {
         SnackbarHelper.error(context, next.error.toString());
       } else if (next.message != null && next.isVerified) {
         SnackbarHelper.success(context, next.message.toString());
-        context.go(Routes.home);
+        if (widget.returnTo == 'profile' || widget.returnTo == 'settings') {
+          ref.read(profileControllerProvider.notifier).loadProfile();
+          if (context.mounted) context.pop();
+        } else {
+          AppStateService.refreshUserDataAfterLogin(ref);
+          try {
+            await NotificationService().onUserLoggedIn(
+              userId: AuthService.getUserId(),
+            );
+          } catch (e) {
+            debugPrint('Error setting up push notifications: $e');
+          }
+          if (context.mounted) context.go(Routes.home);
+        }
       }
     });
 
     return Scaffold(
-      resizeToAvoidBottomInset: true, // 👈 مهم عشان الشاشة تتحرك مع الكيبورد
-      body: SafeArea(
+      resizeToAvoidBottomInset: true,
+      body: PopScope(
+        canPop: widget.returnTo != null,
+        child: SafeArea(
         child: Center(
           child: SingleChildScrollView( // 👈 يمنع الـ overflow
             physics: const BouncingScrollPhysics(),
@@ -188,6 +212,7 @@ class _VerifyOtpScreenState extends ConsumerState<VerifyOtpScreen> {
             ),
           ),
         ),
+      ),
       ),
     );
   }

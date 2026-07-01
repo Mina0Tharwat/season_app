@@ -38,6 +38,7 @@ import 'package:season_app/features/geographical_guides/presentation/screens/my_
 import 'package:season_app/features/geographical_guides/presentation/screens/geographical_guide_details_screen.dart';
 import 'package:season_app/features/auth/presentation/screens/connection_error_screen.dart';
 import 'package:season_app/core/services/app_config_service.dart';
+import 'package:season_app/core/utils/auth_gate.dart';
 import 'package:season_app/core/services/dio_client.dart';
 import 'package:season_app/core/services/notification_navigation_service.dart';
 import 'package:season_app/core/services/session_expired_navigation_service.dart';
@@ -65,6 +66,11 @@ final routerProvider = Provider<GoRouter>((ref) {
       final apiTimeout = AppConfigService.getApiTimeout();
       if (apiTimeout == 0 || AppConfigService.hasConnectionIssue()) {
         return Routes.connectionError;
+      }
+
+      final guestRedirect = AuthGate.guestRedirect(state.uri.path);
+      if (guestRedirect != null) {
+        return guestRedirect;
       }
       
       return null;
@@ -104,7 +110,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: Routes.verifyOtp,
-        builder: (context, state) => const VerifyOtpScreen(),
+        builder: (context, state) {
+          final returnTo = state.uri.queryParameters['from'];
+          return VerifyOtpScreen(returnTo: returnTo);
+        },
       ),
       GoRoute(
         path: Routes.webview,
