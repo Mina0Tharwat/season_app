@@ -10,20 +10,22 @@ class AuthRemoteDataSource {
     required String firstName,
     required String lastName,
     required String email,
-    required String phone,
+    String? phone,
     required String password,
     required String passwordConfirmation,
     String? notificationToken,
   }) async {
-    final data = {
+    final data = <String, dynamic>{
       "first_name": firstName,
       "last_name": lastName,
       "email": email,
-      "phone": phone,
       "password": password,
       "password_confirmation": passwordConfirmation,
       "fcm_token": notificationToken ?? "",
     };
+    if (phone != null && phone.trim().isNotEmpty) {
+      data["phone"] = phone.trim();
+    }
 
     final response = await dio.post(
       ApiEndpoints.register,

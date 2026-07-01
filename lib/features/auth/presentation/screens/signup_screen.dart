@@ -6,15 +6,16 @@ import 'package:season_app/core/constants/app_assets.dart';
 import 'package:season_app/core/constants/app_colors.dart';
 import 'package:season_app/core/localization/generated/l10n.dart';
 import 'package:season_app/core/router/routes.dart';
+import 'package:season_app/core/services/app_state_service.dart';
 import 'package:season_app/core/services/auth_service.dart';
 import 'package:season_app/core/services/notification_service.dart';
+import 'package:season_app/core/services/apple_login_flow.dart';
 import 'package:season_app/core/services/google_login_flow.dart';
 import 'package:season_app/core/services/social_login_service.dart';
 import 'package:season_app/core/utils/validators.dart';
 import 'package:season_app/features/auth/presentation/widgets/agreement_policy.dart';
 import 'package:season_app/features/auth/presentation/widgets/social_login_buttons.dart';
 import 'package:season_app/features/auth/providers.dart';
-import 'package:season_app/features/groups/providers.dart';
 import 'package:season_app/shared/helpers/snackbar_helper.dart';
 import 'package:season_app/shared/providers/locale_provider.dart';
 import 'package:season_app/shared/widgets/custom_button.dart';
@@ -39,6 +40,8 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(signupControllerProvider.notifier).clearError();
       ref.read(signupControllerProvider.notifier).clearMessage();
+      ref.read(loginControllerProvider.notifier).clearError();
+      ref.read(loginControllerProvider.notifier).clearMessage();
     });
   }
 
@@ -53,32 +56,66 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
     final passwordController = ref.watch(passwordControllerProvider);
     final confirmPasswordController = ref.watch(confirmPasswordControllerProvider);
     final signupState = ref.watch(signupControllerProvider);
+    final loginState = ref.watch(loginControllerProvider);
     final signupNotifier = ref.read(signupControllerProvider.notifier);
 
     // Listen to signup state changes
     ref.listen(signupControllerProvider, (previous, next) {
-      if (next.error != null) {
-        SnackbarHelper.error(context, next.error.toString().replaceAll('Exception: ', ''));
-      } else if (next.message != null) {
+      if (next.isLoading) return;
+
+      if (next.error != null && next.error != previous?.error) {
+        SnackbarHelper.error(
+          context,
+          next.error.toString().replaceAll('Exception: ', ''),
+        );
+        signupNotifier.clearError();
+        return;
+      }
+
+      if (next.message == null || next.message == previous?.message) return;
+
+      if (AuthService.isLoggedIn()) {
         SnackbarHelper.success(context, next.message.toString());
-        if (next.needsOtpVerification) {
-          context.push(Routes.verifyOtp);
-        } else {
-          context.go(Routes.home);
+        AppStateService.refreshUserDataAfterLogin(ref);
+        try {
+          NotificationService().onUserLoggedIn(
+            userId: AuthService.getUserId(),
+          );
+        } catch (e) {
+          debugPrint('Error setting up push notifications: $e');
+        }
+        signupNotifier.clearMessage();
+        if (context.mounted) context.go(Routes.home);
+        return;
+      }
+
+      if (next.needsOtpVerification) {
+        signupNotifier.clearMessage();
+        ref.read(loginControllerProvider.notifier).clearError();
+        if (context.mounted) {
+          context.pushReplacement(Routes.verifyOtp);
         }
       }
     });
 
-    // Also listen to login state for social login fallback
+    // Social login (Google) uses loginController
     ref.listen(loginControllerProvider, (previous, next) async {
-      if (next.error != null) {
-        // Error already shown in login listener
-      } else if (next.message != null && next.isLoggedIn) {
+      if (next.isLoading) return;
+
+      if (next.error != null && next.error != previous?.error) {
+        SnackbarHelper.error(
+          context,
+          next.error.toString().replaceAll('Exception: ', ''),
+        );
+        ref.read(loginControllerProvider.notifier).clearError();
+        return;
+      }
+
+      if (next.message == null || next.message == previous?.message) return;
+
+      if (next.isLoggedIn) {
         SnackbarHelper.success(context, next.message.toString());
-        
-        // Clear any existing groups data for the new user
-        ref.read(groupsControllerProvider.notifier).clearAllData();
-        
+        AppStateService.refreshUserDataAfterLogin(ref);
         try {
           await NotificationService().onUserLoggedIn(
             userId: AuthService.getUserId(),
@@ -86,9 +123,15 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
         } catch (e) {
           debugPrint('Error setting up push notifications: $e');
         }
-        
+        ref.read(loginControllerProvider.notifier).clearMessage();
+        if (context.mounted) context.go(Routes.home);
+        return;
+      }
+
+      if (!AuthService.isLoggedIn()) {
+        ref.read(loginControllerProvider.notifier).clearMessage();
         if (context.mounted) {
-          context.go(Routes.home);
+          context.pushReplacement(Routes.verifyOtp);
         }
       }
     });
@@ -159,7 +202,7 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               CustomTextField(
-                                hintText: tr.phone,
+                                hintText: '${tr.phone} (${tr.optional})',
                                 textDirection: TextDirection.ltr,
                                 keyboardType: TextInputType.phone,
                                 showCountryPicker: true,
@@ -180,11 +223,18 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
                                       selection: TextSelection.collapsed(offset: cleanedNumber.length),
                                     );
                                   }
+                                  if (cleanedNumber.isEmpty) {
+                                    ref.read(phoneProvider.notifier).state = '';
+                                    return;
+                                  }
                                   final fullNumber = '${selectedCode.dialCode}$cleanedNumber';
                                   ref.read(phoneProvider.notifier).state = fullNumber;
                                 },
-                                validator: (value) =>
-                                    Validators.phone(value, isArabic: isArabic, countryCode: selectedCode.dialCode),
+                                validator: (value) => Validators.optionalPhone(
+                                  value,
+                                  isArabic: isArabic,
+                                  countryCode: selectedCode.dialCode,
+                                ),
                                 controller: phoneController,
                               ),
             
@@ -249,11 +299,14 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
                               // Get FCM token
                               final fcmToken = await NotificationService().getTokenForAuth();
                               
+                              final phoneValue = phoneController.text.trim().isEmpty
+                                  ? null
+                                  : ref.read(phoneProvider);
                               await signupNotifier.register(
                                 firstName: ref.watch(firstNameProvider),
                                 lastName: ref.watch(lastNameProvider),
                                 email: ref.watch(emailProvider),
-                                phone: ref.watch(phoneProvider),
+                                phone: phoneValue?.trim().isEmpty == true ? null : phoneValue,
                                 password: ref.watch(passwordProvider),
                                 passwordConfirmation: ref.watch(confirmPasswordProvider),
                                 notificationToken: fcmToken,
@@ -267,7 +320,9 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
                             ref.read(loginControllerProvider.notifier).startSocialLogin();
                             try {
                               final fcmToken = await NotificationService().getTokenForAuth();
+                              String? signedInEmail;
                               final message = await GoogleLoginFlow.run(apiCall: (googleData) async {
+                                signedInEmail = googleData['email'];
                                 final idToken = googleData['idToken'];
                                 if (idToken == null || idToken.isEmpty) {
                                   throw Exception('Failed to get Google credentials');
@@ -293,54 +348,62 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
                                   rethrow;
                                 }
                               });
+                              if (signedInEmail != null && signedInEmail!.isNotEmpty) {
+                                ref.read(emailProvider.notifier).state = signedInEmail!;
+                              }
                               ref.read(loginControllerProvider.notifier).completeSocialLogin(message);
                             } catch (e) {
+                              if (SocialLoginService.isCanceled(e)) {
+                                ref.read(loginControllerProvider.notifier).cancelSocialLogin();
+                                return;
+                              }
                               ref.read(loginControllerProvider.notifier).failSocialLogin(
                                 e.toString().replaceAll('Exception: ', ''),
                               );
                             }
                           },
                           onApplePressed: () async {
+                            ref.read(loginControllerProvider.notifier).startSocialLogin();
                             try {
-                              // Get FCM token
                               final fcmToken = await NotificationService().getTokenForAuth();
-                              
-                              // Sign in with Apple
-                              final appleData = await SocialLoginService.signInWithApple();
-                              
-                              // Call backend register/login (backend will handle if user exists)
-                              if (appleData['idToken'] != null) {
+                              final message = await AppleLoginFlow.run(apiCall: (appleData) async {
+                                final idToken = appleData['idToken'];
+                                if (idToken == null || idToken.isEmpty) {
+                                  throw Exception('Failed to get Apple credentials');
+                                }
+                                final repo = ref.read(authRepositoryProvider);
                                 try {
-                                  await ref.read(loginControllerProvider.notifier).loginWithApple(
-                                    idToken: appleData['idToken']!,
+                                  return await repo.loginWithApple(
+                                    idToken: idToken,
                                     authorizationCode: appleData['authorizationCode'],
                                     notificationToken: fcmToken,
                                   );
                                 } catch (e) {
-                                  // Check if it's a "user not found" error (404), then try register
                                   final errorMessage = e.toString();
-                                  if (errorMessage.contains('404:') || 
-                                      errorMessage.toLowerCase().contains('not found') || 
+                                  if (errorMessage.contains('404:') ||
+                                      errorMessage.toLowerCase().contains('not found') ||
                                       errorMessage.toLowerCase().contains('not registered')) {
-                                    // User doesn't exist, try to register
-                                    await ref.read(signupControllerProvider.notifier).registerWithApple(
-                                      idToken: appleData['idToken']!,
+                                    return repo.registerWithApple(
+                                      idToken: idToken,
                                       authorizationCode: appleData['authorizationCode'],
                                       notificationToken: fcmToken,
                                     );
-                                  } else {
-                                    // Other error (e.g., invalid token), show error
-                                    SnackbarHelper.error(context, errorMessage.replaceAll('Exception: ', ''));
                                   }
+                                  rethrow;
                                 }
-                              } else {
-                                SnackbarHelper.error(context, 'Failed to get Apple credentials');
-                              }
+                              });
+                              ref.read(loginControllerProvider.notifier).completeSocialLogin(message);
                             } catch (e) {
-                              SnackbarHelper.error(context, e.toString().replaceAll('Exception: ', ''));
+                              if (SocialLoginService.isCanceled(e)) {
+                                ref.read(loginControllerProvider.notifier).cancelSocialLogin();
+                                return;
+                              }
+                              ref.read(loginControllerProvider.notifier).failSocialLogin(
+                                e.toString().replaceAll('Exception: ', ''),
+                              );
                             }
                           },
-                          isLoading: signupState.isLoading,
+                          isLoading: signupState.isLoading || loginState.isLoading,
                         ),
                         const SizedBox(height: 20),
                         AgreementPolicy(isArabic: isArabic),

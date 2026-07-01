@@ -40,11 +40,13 @@ class SignupController extends StateNotifier<SignupState> {
     required String firstName,
     required String lastName,
     required String email,
-    required String phone,
+    String? phone,
     required String password,
     required String passwordConfirmation,
     String? notificationToken,
   }) async {
+    if (state.isLoading) return;
+
     state = state.copyWith(
       isLoading: true,
       error: null,
@@ -66,7 +68,7 @@ class SignupController extends StateNotifier<SignupState> {
       state = state.copyWith(
         isLoading: false,
         message: message,
-        needsOtpVerification: true,
+        needsOtpVerification: !AuthService.isLoggedIn(),
       );
     } catch (e) {
       state = state.copyWith(isLoading: false, error: e.toString());

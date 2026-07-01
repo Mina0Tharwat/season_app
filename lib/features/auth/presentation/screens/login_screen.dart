@@ -6,14 +6,15 @@ import 'package:season_app/core/constants/app_assets.dart';
 import 'package:season_app/core/constants/app_colors.dart';
 import 'package:season_app/core/localization/generated/l10n.dart';
 import 'package:season_app/core/router/routes.dart';
+import 'package:season_app/core/services/app_state_service.dart';
 import 'package:season_app/core/services/auth_service.dart';
 import 'package:season_app/core/services/notification_service.dart';
+import 'package:season_app/core/services/apple_login_flow.dart';
 import 'package:season_app/core/services/google_login_flow.dart';
 import 'package:season_app/core/services/social_login_service.dart';
 import 'package:season_app/core/utils/validators.dart';
 import 'package:season_app/features/auth/presentation/widgets/social_login_buttons.dart';
 import 'package:season_app/features/auth/providers.dart';
-import 'package:season_app/features/groups/providers.dart';
 import 'package:season_app/shared/helpers/snackbar_helper.dart';
 import 'package:season_app/shared/providers/locale_provider.dart';
 import 'package:season_app/shared/widgets/custom_button.dart';
@@ -50,13 +51,21 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     
     // Listen to login state changes
     ref.listen(loginControllerProvider, (previous, next) async {
-      if (next.error != null) {
+      if (next.isLoading) return;
+
+      if (next.error != null && next.error != previous?.error) {
         SnackbarHelper.error(context, next.error.toString().replaceAll('Exception: ', ''));
-      } else if (next.message != null && next.isLoggedIn) {
+        ref.read(loginControllerProvider.notifier).clearError();
+        return;
+      }
+
+      if (next.message == null || next.message == previous?.message) return;
+
+      if (next.isLoggedIn) {
         SnackbarHelper.success(context, next.message.toString());
         
-        // Clear any existing groups data for the new user
-        ref.read(groupsControllerProvider.notifier).clearAllData();
+        // Refresh all user-specific data that may have loaded as a guest.
+        AppStateService.refreshUserDataAfterLogin(ref);
         
         try {
           await NotificationService().onUserLoggedIn(
@@ -66,27 +75,48 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           debugPrint('Error setting up push notifications: $e');
         }
         
+        ref.read(loginControllerProvider.notifier).clearMessage();
         if (context.mounted) {
           context.go(Routes.home);
         }
-      } else if (next.message != null && !next.isLoggedIn) {
-        // Social login might require OTP verification
-        SnackbarHelper.info(context, next.message.toString());
-        if (context.mounted && next.message!.toLowerCase().contains('otp')) {
-          context.push(Routes.verifyOtp);
-        }
+        return;
+      }
+
+      SnackbarHelper.info(context, next.message.toString());
+      ref.read(loginControllerProvider.notifier).clearMessage();
+      if (context.mounted) {
+        context.push(Routes.verifyOtp);
       }
     });
 
+    void handleBack() {
+      if (context.canPop()) {
+        context.pop();
+      } else {
+        context.go(Routes.home);
+      }
+    }
+
     return Scaffold(
       body: SafeArea(
-        child: Center(
-          child: Form(
-            key: formKey,
-            child: SingleChildScrollView(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Align(
+              alignment: isArabic ? Alignment.centerRight : Alignment.centerLeft,
+              child: IconButton(
+                icon: Icon(Icons.arrow_back, color: AppColors.primary),
+                onPressed: handleBack,
+              ),
+            ),
+            Expanded(
+              child: Center(
+                child: Form(
+                  key: formKey,
+                  child: SingleChildScrollView(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
                   Image.asset(AppAssets.seasonAuthImage, height: 80),
                   const SizedBox(height: 10),
                   Text(
@@ -179,24 +209,48 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                             ref.read(loginControllerProvider.notifier).startSocialLogin();
                             try {
                               final fcmToken = await NotificationService().getTokenForAuth();
+                              String? signedInEmail;
                               final message = await GoogleLoginFlow.run(apiCall: (googleData) async {
+                                signedInEmail = googleData['email'];
                                 final idToken = googleData['idToken'];
                                 if (idToken == null || idToken.isEmpty) {
                                   throw Exception('Failed to get Google credentials');
                                 }
-                                return ref.read(authRepositoryProvider).loginWithGoogle(
-                                  idToken: idToken,
-                                  accessToken: googleData['accessToken'] ?? '',
-                                  notificationToken: fcmToken,
-                                );
+                                final repo = ref.read(authRepositoryProvider);
+                                try {
+                                  return await repo.loginWithGoogle(
+                                    idToken: idToken,
+                                    accessToken: googleData['accessToken'] ?? '',
+                                    notificationToken: fcmToken,
+                                  );
+                                } catch (e) {
+                                  final errorMessage = e.toString();
+                                  if (errorMessage.contains('404:') ||
+                                      errorMessage.toLowerCase().contains('not found') ||
+                                      errorMessage.toLowerCase().contains('not registered')) {
+                                    return repo.registerWithGoogle(
+                                      idToken: idToken,
+                                      accessToken: googleData['accessToken'] ?? '',
+                                      notificationToken: fcmToken,
+                                    );
+                                  }
+                                  rethrow;
+                                }
                               });
+                              if (signedInEmail != null && signedInEmail!.isNotEmpty) {
+                                ref.read(emailProvider.notifier).state = signedInEmail!;
+                              }
                               ref.read(loginControllerProvider.notifier).completeSocialLogin(message);
                             } catch (e) {
+                              if (SocialLoginService.isCanceled(e)) {
+                                ref.read(loginControllerProvider.notifier).cancelSocialLogin();
+                                return;
+                              }
                               var errorMessage = e.toString().replaceAll('Exception: ', '');
                               if (errorMessage.contains('404:') ||
                                   errorMessage.toLowerCase().contains('not found') ||
                                   errorMessage.toLowerCase().contains('not registered')) {
-                                errorMessage = Localizations.localeOf(context).languageCode == 'ar'
+                                errorMessage = isArabic
                                     ? 'المستخدم غير موجود. يرجى التسجيل أولاً'
                                     : 'User not found. Please register first';
                               }
@@ -204,38 +258,44 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                             }
                           },
                           onApplePressed: () async {
+                            ref.read(loginControllerProvider.notifier).startSocialLogin();
                             try {
-                              // Get FCM token
                               final fcmToken = await NotificationService().getTokenForAuth();
-                              
-                              // Sign in with Apple
-                              final appleData = await SocialLoginService.signInWithApple();
-                              
-                              // Call backend login
-                              if (appleData['idToken'] != null) {
-                                await ref.read(loginControllerProvider.notifier).loginWithApple(
-                                  idToken: appleData['idToken']!,
-                                  authorizationCode: appleData['authorizationCode'],
-                                  notificationToken: fcmToken,
-                                );
-                              } else {
-                                SnackbarHelper.error(context, 'Failed to get Apple credentials');
-                              }
+                              final message = await AppleLoginFlow.run(apiCall: (appleData) async {
+                                final idToken = appleData['idToken'];
+                                if (idToken == null || idToken.isEmpty) {
+                                  throw Exception('Failed to get Apple credentials');
+                                }
+                                final repo = ref.read(authRepositoryProvider);
+                                try {
+                                  return await repo.loginWithApple(
+                                    idToken: idToken,
+                                    authorizationCode: appleData['authorizationCode'],
+                                    notificationToken: fcmToken,
+                                  );
+                                } catch (e) {
+                                  final errorMessage = e.toString();
+                                  if (errorMessage.contains('404:') ||
+                                      errorMessage.toLowerCase().contains('not found') ||
+                                      errorMessage.toLowerCase().contains('not registered')) {
+                                    return repo.registerWithApple(
+                                      idToken: idToken,
+                                      authorizationCode: appleData['authorizationCode'],
+                                      notificationToken: fcmToken,
+                                    );
+                                  }
+                                  rethrow;
+                                }
+                              });
+                              ref.read(loginControllerProvider.notifier).completeSocialLogin(message);
                             } catch (e) {
-                              final errorMessage = e.toString();
-                              // On login screen, if user not found, suggest registration
-                              if (errorMessage.contains('404:') || 
-                                  errorMessage.toLowerCase().contains('not found') || 
-                                  errorMessage.toLowerCase().contains('not registered')) {
-                                SnackbarHelper.error(
-                                  context, 
-                                  Localizations.localeOf(context).languageCode == 'ar'
-                                      ? 'المستخدم غير موجود. يرجى التسجيل أولاً'
-                                      : 'User not found. Please register first'
-                                );
-                              } else {
-                                SnackbarHelper.error(context, errorMessage.replaceAll('Exception: ', ''));
+                              if (SocialLoginService.isCanceled(e)) {
+                                ref.read(loginControllerProvider.notifier).cancelSocialLogin();
+                                return;
                               }
+                              ref.read(loginControllerProvider.notifier).failSocialLogin(
+                                e.toString().replaceAll('Exception: ', ''),
+                              );
                             }
                           },
                           isLoading: loginState.isLoading,
@@ -274,8 +334,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             ),
           ),
         ),
-      ),
-    );
+        ),
+      ],
+    ),
+  ),
+);
   }
 }
 

@@ -14,7 +14,7 @@ class AuthRepository {
     required String firstName,
     required String lastName,
     required String email,
-    required String phone,
+    String? phone,
     required String password,
     required String passwordConfirmation,
     String? notificationToken,
@@ -30,18 +30,39 @@ class AuthRepository {
         notificationToken: notificationToken,
       );
 
-      if (response.statusCode == 201) {
-        return response.data["message"] ?? "OTP sent successfully.";
+      if (response.statusCode == 201 || response.statusCode == 200) {
+        final tokenSaved = await _persistSessionFromAuthResponse(
+          response.data,
+          fallbackEmail: email,
+        );
+
+        if (tokenSaved) {
+          await AuthService.setEmailVerified(
+            _isEmailVerifiedInResponse(response.data),
+          );
+        } else {
+          // OTP required to activate the account — save email for verify screen.
+          await AuthService.saveUserEmail(email);
+          await AuthService.setEmailVerified(false);
+        }
+
+        return _asMap(response.data)?["message"]?.toString() ??
+            "OTP sent successfully.";
       } else {
-        throw Exception(response.data["message"] ?? "Registration failed");
+        throw Exception(
+          _asMap(response.data)?["message"]?.toString() ?? "Registration failed",
+        );
       }
     } on DioException catch (e) {
-      if (e.response?.statusCode == 400) {
-        final message = e.response?.data['message'] ?? 'حدث خطأ غير متوقع';
-        throw Exception(message);
-      } else {
-        throw Exception('حدث خطأ أثناء التسجيل');
+      final status = e.response?.statusCode;
+      final data = e.response?.data;
+      if (status == 400 || status == 409 || status == 422) {
+        final message = data is Map
+            ? data['message']?.toString()
+            : null;
+        throw Exception(message ?? 'حدث خطأ غير متوقع');
       }
+      throw Exception('حدث خطأ أثناء التسجيل');
     }
   }
 
@@ -61,65 +82,45 @@ class AuthRepository {
       print('🔍 Login Response: ${response.data}');
       
       if (response.statusCode == 200) {
-        // Try to extract token from various possible locations
-        dynamic token;
-        dynamic userId;
+        // Debug: Print the response structure
+        print('🔍 Login Response: ${response.data}');
         
-        // Check multiple possible paths for token
-        if (response.data is Map) {
-          // Try: data.token
-          token = response.data['data']?['token'];
-          
-          // Try: token
-          token ??= response.data['token'];
-          
-          // Try: data.access_token
-          token ??= response.data['data']?['access_token'];
-          
-          // Try: access_token
-          token ??= response.data['access_token'];
-          
-          // Get user ID - check multiple possible locations
-          userId = response.data['data']?['user']?['id']?.toString();
-          userId ??= response.data['user']?['id']?.toString();
-          userId ??= response.data['userInfo']?['id']?.toString(); // Season API uses 'userInfo'
-        }
-        
-        print('🔑 Extracted Token: ${token?.toString().substring(0, token.toString().length > 30 ? 30 : token.toString().length)}...');
-        print('👤 User ID: $userId');
-        
-        if (token != null && token.toString().isNotEmpty) {
-          await AuthService.saveAuthData(
-            token: token.toString(),
-            userId: userId,
-            email: email,
-          );
-          
-          // Set token in DioHelper immediately
-          DioHelper.instance.setAccessToken(token.toString());
-          print('✅ Token saved and set in DioHelper');
-          
-          // Fetch and store group IDs for background location tracking
-          // This ensures group IDs are available even when app is terminated
-          try {
-            await startBackgroundLocationTracking();
-            print('✅ Background location tracking started after login');
-          } catch (e) {
-            print('⚠️ Error starting background location tracking after login: $e');
-          }
-        } else {
-          print('⚠️ No token in login response - might require OTP verification');
-        }
+        await _persistSessionFromAuthResponse(
+          response.data,
+          fallbackEmail: email,
+        );
+        await AuthService.setEmailVerified(
+          _isEmailVerifiedInResponse(response.data),
+        );
         
         return response.data["message"] ?? "Login successful.";
       } else {
         throw Exception(response.data["message"] ?? "Login failed");
       }
     } on DioException catch (e) {
-      if (e.response?.statusCode == 401) {
+      final status = e.response?.statusCode;
+      final data = e.response?.data;
+
+      // Some backends return a token with 400/403 when email is not verified yet.
+      if (status == 400 || status == 403) {
+        if (data is Map) {
+          final saved = await _persistSessionFromAuthResponse(
+            data,
+            fallbackEmail: email,
+          );
+          if (saved) {
+            await AuthService.setEmailVerified(_isEmailVerifiedInResponse(data));
+            await AuthService.setPendingVerificationEmail(null);
+            final message = _asMap(data)?['message']?.toString();
+            return message ?? 'Login successful.';
+          }
+        }
+      }
+
+      if (status == 401) {
         final message = e.response?.data['message'] ?? 'Invalid credentials';
         throw Exception(message);
-      } else if (e.response?.statusCode == 400) {
+      } else if (status == 400 || status == 403) {
         final message = e.response?.data['message'] ?? 'حدث خطأ غير متوقع';
         throw Exception(message);
       } else {
@@ -142,53 +143,20 @@ class AuthRepository {
       print('🔍 OTP Verification Response: ${response.data}');
       
       if (response.statusCode == 200) {
-        // Try to extract token from various possible locations
-        dynamic token;
-        dynamic userId;
+        // Debug: Print the response structure
+        print('🔍 OTP Verification Response: ${response.data}');
         
-        // Check multiple possible paths for token
-        if (response.data is Map) {
-          // Try: data.token
-          token = response.data['data']?['token'];
-          
-          // Try: token
-          token ??= response.data['token'];
-          
-          // Try: data.access_token
-          token ??= response.data['data']?['access_token'];
-          
-          // Try: access_token
-          token ??= response.data['access_token'];
-          
-          // Get user ID - check multiple possible locations
-          userId = response.data['data']?['user']?['id']?.toString();
-          userId ??= response.data['user']?['id']?.toString();
-          userId ??= response.data['userInfo']?['id']?.toString(); // Season API uses 'userInfo'
-        }
-        
-        print('🔑 Extracted Token: ${token?.toString().substring(0, token.toString().length > 30 ? 30 : token.toString().length)}...');
-        print('👤 User ID: $userId');
-        
-        if (token != null && token.toString().isNotEmpty) {
-          await AuthService.saveAuthData(
-            token: token.toString(),
-            userId: userId,
-            email: email,
-          );
-          
-          // Set token in DioHelper immediately
-          DioHelper.instance.setAccessToken(token.toString());
-          print('✅ Token saved and set in DioHelper');
-          
-          // Fetch and store group IDs for background location tracking
-          // This ensures group IDs are available even when app is terminated
-          try {
-            await startBackgroundLocationTracking();
-            print('✅ Background location tracking started after OTP verification');
-          } catch (e) {
-            print('⚠️ Error starting background location tracking after OTP: $e');
-          }
-        } else {
+        final hadToken = await _persistSessionFromAuthResponse(
+          response.data,
+          fallbackEmail: email,
+          startLocationTracking: !AuthService.isLoggedIn(),
+        );
+        await AuthService.setEmailVerified(true);
+        await AuthService.setPendingVerificationEmail(null);
+
+        if (!hadToken && AuthService.isLoggedIn()) {
+          print('✅ Email verified for existing session');
+        } else if (!hadToken) {
           print('⚠️ No token found in OTP verification response');
         }
         
@@ -465,10 +433,13 @@ class AuthRepository {
           }
 
           return response.data["message"] ?? "Registration successful.";
-        } else {
-          // User needs OTP verification
-          return response.data["message"] ?? "OTP sent successfully.";
         }
+
+        if (email != null && email.isNotEmpty) {
+          await AuthService.saveUserEmail(email);
+          await AuthService.setEmailVerified(false);
+        }
+        return response.data["message"] ?? "OTP sent successfully.";
       } else {
         throw Exception(response.data["message"] ?? "Google registration failed");
       }
@@ -547,8 +518,11 @@ class AuthRepository {
         final message = e.response?.data['message'] ?? 'Invalid Apple credentials';
         throw Exception(message);
       } else if (e.response?.statusCode == 400) {
-        final message = e.response?.data['message'] ?? 'Apple login failed';
-        throw Exception(message);
+        final data = e.response?.data;
+        final message = data is Map
+            ? (data['error'] ?? data['message'] ?? 'Apple login failed')
+            : 'Apple login failed';
+        throw Exception(message.toString());
       } else {
         throw Exception('حدث خطأ أثناء تسجيل الدخول باستخدام Apple');
       }
@@ -617,11 +591,97 @@ class AuthRepository {
       }
     } on DioException catch (e) {
       if (e.response?.statusCode == 400) {
-        final message = e.response?.data['message'] ?? 'Apple registration failed';
-        throw Exception(message);
+        final data = e.response?.data;
+        final message = data is Map
+            ? (data['error'] ?? data['message'] ?? 'Apple registration failed')
+            : 'Apple registration failed';
+        throw Exception(message.toString());
       } else {
         throw Exception('حدث خطأ أثناء التسجيل باستخدام Apple');
       }
     }
+  }
+
+  Future<bool> _persistSessionFromAuthResponse(
+    dynamic data, {
+    String? fallbackEmail,
+    bool startLocationTracking = true,
+  }) async {
+    final root = _asMap(data);
+    if (root == null) return false;
+
+    final inner = _asMap(root['data']);
+
+    dynamic token = inner?['token'] ??
+        root['token'] ??
+        inner?['access_token'] ??
+        root['access_token'];
+
+    final userMap = _asMap(inner?['user']) ??
+        _asMap(root['user']) ??
+        _asMap(inner?['userInfo']) ??
+        _asMap(root['userInfo']);
+
+    final userId = userMap?['id']?.toString();
+    final email = userMap?['email']?.toString() ?? fallbackEmail;
+
+    if (token == null || token.toString().isEmpty) {
+      return false;
+    }
+
+    await AuthService.saveAuthData(
+      token: token.toString(),
+      userId: userId,
+      email: email,
+    );
+    DioHelper.instance.setAccessToken(token.toString());
+
+    if (startLocationTracking) {
+      try {
+        await startBackgroundLocationTracking();
+      } catch (e) {
+        print('⚠️ Error starting background location tracking: $e');
+      }
+    }
+
+    return true;
+  }
+
+  bool _isEmailVerifiedInResponse(dynamic data) {
+    final root = _asMap(data);
+    if (root == null) return false;
+
+    final user = _extractUserMap(root);
+    if (user != null) {
+      if (_looksVerified(user['email_verified_at'])) return true;
+      if (user['is_email_verified'] == true || user['email_verified'] == true) {
+        return true;
+      }
+    }
+
+    if (_looksVerified(root['email_verified_at'])) return true;
+
+    return false;
+  }
+
+  bool _looksVerified(dynamic value) {
+    return value != null &&
+        value.toString().isNotEmpty &&
+        value.toString().toLowerCase() != 'null';
+  }
+
+  Map<String, dynamic>? _extractUserMap(Map data) {
+    final nested = _asMap(data['data']);
+    final user = _asMap(nested?['user']) ??
+        _asMap(nested?['userInfo']) ??
+        _asMap(data['user']) ??
+        _asMap(data['userInfo']);
+    return user;
+  }
+
+  Map<String, dynamic>? _asMap(dynamic value) {
+    if (value is Map<String, dynamic>) return value;
+    if (value is Map) return Map<String, dynamic>.from(value);
+    return null;
   }
 }

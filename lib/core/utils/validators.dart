@@ -22,13 +22,16 @@ class Validators {
     return null;
   }
 
-  static String? phone(String? value, {bool isArabic = true, String? countryCode}) {
-    if (value == null || value.isEmpty) {
-      return isArabic ? 'رقم الهاتف مطلوب' : 'Phone number is required';
+  static String? phone(String? value, {bool isArabic = true, String? countryCode, bool required = true}) {
+    if (value == null || value.trim().isEmpty) {
+      return required ? (isArabic ? 'رقم الهاتف مطلوب' : 'Phone number is required') : null;
     }
-    
- 
     return null;
+  }
+
+  /// Phone is optional at signup; validate format only when provided.
+  static String? optionalPhone(String? value, {bool isArabic = true, String? countryCode}) {
+    return phone(value, isArabic: isArabic, countryCode: countryCode, required: false);
   }
 
   static String? notEmpty(String? value,

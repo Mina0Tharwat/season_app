@@ -82,26 +82,19 @@ This guide explains how to obtain all the required environment variables for Goo
    - Select "App IDs" > Continue
    - Select "App" > Continue
    - Description: "Season App"
-   - Bundle ID: Select "Explicit" and enter `com.season.app.season_app`
+   - Bundle ID: Select "Explicit" and enter `com.season.app.seasonApp`
    - Enable "Sign In with Apple" capability
    - Click "Continue" > "Register"
 
-3. **Create a Service ID (APPLE_CLIENT_ID)**
-   - Still in "Identifiers"
-   - Click "+" button
-   - Select "Services IDs" > Continue
-   - Description: "Season App Service"
-   - Identifier: `com.season.app.season_app.service` (or similar)
-   - Click "Continue" > "Register"
-   - Click on the newly created Service ID
-   - Check "Sign In with Apple"
-   - Click "Configure"
-   - Primary App ID: Select your App ID created above
-   - Website URLs:
-     - Domains and Subdomains: `your-api-domain.com` (or `localhost` for testing)
-     - Return URLs: `https://your-api-domain.com/auth/apple/callback`
-   - Click "Save" > "Continue" > "Save"
-   - **Copy the Identifier** → This is your `APPLE_CLIENT_ID`
+3. **Laravel `.env` — use Bundle ID (NOT Service ID for iOS app)**
+
+   For native iOS Sign in with Apple, the JWT `aud` claim equals the **Bundle ID**:
+
+   ```env
+   APPLE_CLIENT_ID=com.season.app.seasonApp
+   ```
+
+   *(Service IDs are only for web Sign in with Apple — optional for this project.)*
 
 4. **Create a Key (APPLE_KEY_ID and APPLE_PRIVATE_KEY)**
    - Go to "Keys" section
@@ -132,9 +125,9 @@ Once you have all the values, add them to your `.env` file:
 GOOGLE_CLIENT_ID=your_google_client_id_here.apps.googleusercontent.com
 GOOGLE_CLIENT_SECRET=your_google_client_secret_here
 
-# Apple Credentials
-APPLE_CLIENT_ID=com.season.app.season_app.service
-APPLE_TEAM_ID=ABC123DEF4
+# Apple Credentials (iOS native — Bundle ID)
+APPLE_CLIENT_ID=com.season.app.seasonApp
+APPLE_TEAM_ID=GKQ3F4H77H
 APPLE_KEY_ID=XYZ789ABC1
 APPLE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\nMIGTAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBHkwdwIBAQQg...\n-----END PRIVATE KEY-----"
 ```
