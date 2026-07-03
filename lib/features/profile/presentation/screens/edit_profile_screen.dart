@@ -324,7 +324,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
                           'edit_phone_${selectedCountryCode.code}_${selectedCountryCode.dialCode}',
                         ),
                         controller: _phoneController,
-                        hintText: loc.phone,
+                        hintText: '${loc.phone} (${loc.optional})',
                         textDirection: TextDirection.ltr,
                         keyboardType: TextInputType.phone,
                         showCountryPicker: true,
@@ -349,13 +349,8 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
                           }
                         },
                         validator: (value) {
-                          if (value == null || value.trim().isEmpty) {
-                            return ref.watch(localeProvider).languageCode == 'ar'
-                                ? 'رقم الهاتف مطلوب'
-                                : 'Please enter phone';
-                          }
                           final isArabic = ref.watch(localeProvider).languageCode == 'ar';
-                          return Validators.phone(
+                          return Validators.optionalPhone(
                             value,
                             isArabic: isArabic,
                             countryCode: selectedCountryCode.dialCode,
